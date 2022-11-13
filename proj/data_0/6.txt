@@ -1,7 +1,5 @@
-Full stops for abbreviations are ignored. e.g., U.S.
+Full stops for abbreviations are e.g., U.S and us. also L.A.
 
-abc123 abc 123
+doesn't don't didn't hasn't hadn't 
 
-remind us that this is the simplest sample ever
-
-test that it's cat, cats, cat's, cats' are better rocks all the same.
+test that it's cat, cats, cat's, cats' are better rocks.
