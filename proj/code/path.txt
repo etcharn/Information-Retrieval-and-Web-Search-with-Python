@@ -1,0 +1,8 @@
+folder of small data
+/Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/data_0
+
+folder of index
+/Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/index
+
+test indexer with small data
+python3 index.py /Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/data_0 /Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/index

@@ -1,0 +1,7 @@
+Full stops for abbreviations are ignored. e.g., U.S.
+
+abc123 abc 123
+
+remind us that this is the simplest sample ever
+
+test that it's cat, cats, cat's, cats' are better rocks all the same.
