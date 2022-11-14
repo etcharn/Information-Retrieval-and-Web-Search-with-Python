@@ -1,6 +1,7 @@
 import sys
 import os
 import re
+import string
 import nltk
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import wordnet as wn
@@ -8,10 +9,12 @@ from nltk.corpus import wordnet as wn
 
 lemmatizer = WordNetLemmatizer()
 
-word_list = ['tom', "can", 'I', 'shoe', 'it', 'he', 'she', 'there', 'here']
+word = 'cats'
 
-for word in word_list:
-    pos_tag = nltk.pos_tag(list(word))[0]
-    print(f"{word} is {pos_tag}")
-
-# print(lemmatizer.lemmatize(word, pos_tag))
+pos_tag_list = wn.synsets(word)
+if len(pos_tag_list):
+    pos_tag = wn.synsets(word)[0].pos()
+    print(pos_tag)
+    print(lemmatizer.lemmatize(word, pos_tag))
+else:
+    print(lemmatizer.lemmatize(word))

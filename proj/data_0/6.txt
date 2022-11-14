@@ -1,5 +1,0 @@
-Full stops for abbreviations are e.g., U.S and us. also L.A.
-
-doesn't don't didn't hasn't hadn't 
-
-test that it's cat, cats, cat's, cats' are better rocks.

@@ -4,5 +4,9 @@ folder of small data
 folder of index
 /Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/index
 
+test indexer with test data
+python3 index.py /Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/test_D /Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/index
 test indexer with small data
-python3 index.py /Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/data_0 /Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/index
+python3 index.py /Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/small_D /Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/index
+test indexer with 1000 doc
+python3 index.py /Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/data /Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/index
