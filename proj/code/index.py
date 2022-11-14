@@ -14,15 +14,14 @@ lemmatizer = WordNetLemmatizer()
 # helper function
 
 data_folder_path = sys.argv[1]
-# data_folder_path = "/Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/small_D"
 # the number of documents in data folder
 file_count = 0
 # dictionary to store
 term_dict = {}
 '''
     {
-        "hello" : {
-            3 : [120, 125, 278], 
+        "term" : {
+            docID : pos_idx_list_for_docID, 
             5 : [28], 
             10 : [132, 182], 
             23 : [0, 12, 28], 
@@ -41,19 +40,25 @@ verb_to_be_list = ['is', 'am', 'are', 'was', 'were']
 
 for docID in os.listdir(data_folder_path):
     with open(os.path.join(data_folder_path, docID), 'r') as f:
+        # incerment the number of file read
         file_count += 1
+        # reset index when read new file
         pos_idx = 0
+        # read text file line by line
         lines = f.readlines()
         for line in lines:
             line = line.strip()
+            # split the line into tokens
             tokens = re.split(
                 "[ *$&#/\t\n\f\"\\\,:;\[\](){}<>~\-_]", line.lower())
+            # for each token, treat them as spec mentioned
             for token in tokens:
                 if len(token):
-                    # case word is number, ignore it
+                    # case token is number, ignore it
                     if token.isnumeric():
                         continue
-                    # case ' at the end of the word
+                    # case the token has ', split with '
+                    # then lemmatize the token and add to term_dict
                     elif token.find("'") != -1:
                         token_split = token.split("'")
                         for token in token_split:
@@ -71,8 +76,8 @@ for docID in os.listdir(data_folder_path):
                                     token_count += 1
                     # case token is the end of a sentence (having . or ! or ?)
                     # has to be treated specially
-                    # separate . or ! or ? out of token first
-                    # derive pos_tag to use for lemmatize
+                    # by separating . or ! or ? out of token
+                    # and add both token and punctuation to term_dict
                     elif token.find(".") == len(token) - 1 or token.find("!") == len(token) - 1 or token.find("?") == len(token) - 1:
                         # slice out token from the whole token (token + punctuation)
                         token_slice = token[0:len(token)-1]
@@ -91,17 +96,17 @@ for docID in os.listdir(data_folder_path):
                             add_punctuation_to_term_dict(
                                 term_dict, punc, docID, pos_idx)
                             pos_idx += 1
-                        # case number followed with punctuation e.g. 123?
-                        # still print ? as a mark for end of sentence
+                        # case token consists of number followed with punctuation e.g. 123?
+                        # still add ? to term_dict as the indicator for end of sentence
                         else:
                             add_punctuation_to_term_dict(
                                 term_dict, punc, docID, pos_idx)
                             pos_idx += 1
-                    # case . as token divider
+                    # case the token is abbreviation having . as token divider
+                    # get rid of . and lemmatize the token
+                    # before add to term_dict
                     elif token.find(".") != -1:
-                        # remove .
                         token = token.replace(".", "")
-                        # lemmatize
                         if not token.isnumeric():
                             lemmatized_token = lemmatize_token(token)
                             if add_key_to_term_dict(term_dict, lemmatize_token, docID, pos_idx):
@@ -112,6 +117,8 @@ for docID in os.listdir(data_folder_path):
                                 pos_idx += 1
                                 token_count += 1
                     # case token consists of number
+                    # get rid of number, lemmatize the token
+                    # and add to term_dict
                     elif re.search(r'\d', token):
                         token_split = re.split(r'(\d+)', token)
                         for token in token_split:
@@ -124,6 +131,9 @@ for docID in os.listdir(data_folder_path):
                                 else:
                                     pos_idx += 1
                                     token_count += 1
+                    # token is a verb-to-be
+                    # hardcoded because wn.synsets not able to
+                    # derive the right pos_tag to be used for lemmatizing it
                     elif token in verb_to_be_list:
                         token = "be"
                         if add_key_to_term_dict(term_dict, token, docID, pos_idx):
@@ -133,6 +143,8 @@ for docID in os.listdir(data_folder_path):
                         else:
                             pos_idx += 1
                             token_count += 1
+                    # for all other cases, just lemmatize the token
+                    # and add to term_dict
                     else:
                         lemmatized_token = lemmatize_token(token)
                         if add_key_to_term_dict(term_dict, lemmatized_token, docID, pos_idx):
