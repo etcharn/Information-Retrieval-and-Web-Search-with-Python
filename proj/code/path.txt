@@ -1,8 +1,11 @@
-folder of small data
-/Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/data_0
+folder of data
+/Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/data
 
 folder of index
 /Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/index
+
+run searh.py
+python3 search.py /Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/index
 
 test indexer with test data
 python3 index.py /Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/test_D /Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/index

@@ -1,6 +1,12 @@
+
+# helper function
 from helper import find_pos_tag, lemmatize_token, add_key_to_term_dict, add_punctuation_to_term_dict
+# file system
 import sys
 import os
+import json
+import ujson
+# pre-processing
 import re
 import string
 import nltk
@@ -11,9 +17,11 @@ nltk.download('omw-1.4', quiet=True)
 
 lemmatizer = WordNetLemmatizer()
 
-# helper function
 
 data_folder_path = sys.argv[1]
+index_folder_path = sys.argv[2]
+# data_folder_path = "/Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/data"
+# index_folder_path = "/Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/index"
 # the number of documents in data folder
 file_count = 0
 # dictionary to store
@@ -35,8 +43,6 @@ term_count = 0
 token_count = 0
 # to track index in a file
 pos_idx = 0
-# verb to be has to be hardcoded as
-verb_to_be_list = ['is', 'am', 'are', 'was', 'were']
 
 for docID in os.listdir(data_folder_path):
     with open(os.path.join(data_folder_path, docID), 'r') as f:
@@ -56,7 +62,7 @@ for docID in os.listdir(data_folder_path):
                 if len(token):
                     # case token is number, ignore it
                     if token.isnumeric():
-                        continue
+                        pass
                     # case the token has ', split with '
                     # then lemmatize the token and add to term_dict
                     elif token.find("'") != -1:
@@ -134,7 +140,7 @@ for docID in os.listdir(data_folder_path):
                     # token is a verb-to-be
                     # hardcoded because wn.synsets not able to
                     # derive the right pos_tag to be used for lemmatizing it
-                    elif token in verb_to_be_list:
+                    elif token in ['is', 'am', 'are', 'was', 'were']:
                         token = "be"
                         if add_key_to_term_dict(term_dict, token, docID, pos_idx):
                             pos_idx += 1
@@ -155,7 +161,11 @@ for docID in os.listdir(data_folder_path):
                             pos_idx += 1
                             token_count += 1
 
-# print according to spec
+# save term_dict as json
+with open(os.path.join(index_folder_path, "index.json"), 'w') as outfile:
+    ujson.dump(term_dict, outfile)
+
+    # print according to spec
 print("Total number of documents:", file_count)
 print("Total number of tokens:", token_count)
 print("Total number of terms:", term_count)
