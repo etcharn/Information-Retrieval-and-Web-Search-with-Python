@@ -127,6 +127,22 @@ def modify_phrase(query):
             quotation_mark_count = 0
     return ''.join(modified_query)
 
+# change all or operation to |
+
+
+def modify_or(query):
+    query_split = query.split(" ")
+    # for any adjacent terms without operation between
+    idx = 0
+    for idx in range(0, len(query_split) - 1):
+        elem = query_split[idx]
+        next_elem = query_split[idx + 1]
+        if is_term(elem) and is_term(next_elem):
+            query_split.insert(idx + 1, '|')
+    return ' '.join(query_split)
+
+# process or
+
 
 def is_term(elem):
     if elem.find("+") != -1 or elem.find("/") != -1 or elem.find("&") != -1 or elem.find("|") != -1:
@@ -136,9 +152,11 @@ def is_term(elem):
 
 
 # print formatted output
-def print_formatted_output(ans_lst):
+def print_formatted_output(term_dict, ans_lst):
     formatted_output_lst = []
     res_lst = ans_lst[0]
+    if res_lst == None:
+        return
     for res in res_lst:
         formatted_output_lst.append(int(res[0]))
     for elem in sorted(set(formatted_output_lst)):
@@ -195,7 +213,9 @@ def process_plus_one(term_dict, term_1, term_2, n=1):
                         if term_2_pos - term_1_pos < 0 or term_2_pos - term_1_pos > n:
                             lst.remove(term_2_pos)
                     for term_2_pos in lst:
-                        ans.append([docID, [term_1_pos, term_2_pos]])
+                        res = [docID, [term_1_pos, term_2_pos]]
+                        if res not in ans:
+                            ans.append(res)
             return ans
     # case term_1 is a list of positional index
     else:
@@ -296,25 +316,9 @@ def process_phrase(term_dict, query):
                 continue
     return query_split
 
-# change all or operation to |
-
-
-def modify_or(query):
-    query_split = query.split(" ")
-    # for any adjacent terms without operation between
-    idx = 0
-    for idx in range(0, len(query_split) - 1):
-        elem = query_split[idx]
-        next_elem = query_split[idx + 1]
-        if is_term(elem) and is_term(next_elem):
-            query_split.insert(idx + 1, '|')
-    return ' '.join(query_split)
-
-# process or
-
 
 def process_or(term_dict, query):
-    res_lst = query
+    ans_lst = query
     # each adjacent terms or list in query split
     # is basically or operation
     # if isinstance(query, list):
@@ -326,80 +330,183 @@ def process_or(term_dict, query):
         preceded_term = query[or_idx - 1]
         # followed_term
         followed_term = query[or_idx + 1]
-        if isinstance(preceded_term, str) and isinstance(followed_term, str):
-            res_lst = []
-            if preceded_term in term_dict.keys():
-                for docID in term_dict[preceded_term]:
-                    pos_idx_lst = term_dict[preceded_term][docID]
-                    res = [docID]
-                    res.append([idx for idx in pos_idx_lst])
-                    res_lst.append(res)
-            if followed_term in term_dict.keys():
-                for docID in term_dict[followed_term]:
-                    pos_idx_lst = term_dict[followed_term][docID]
-                    res = [docID]
-                    res.append([idx for idx in pos_idx_lst])
-                    res_lst.append(res)
-            # after process |, remove processed elements
-            # and replace with the list
-            query.pop(or_idx)
-            query.remove(preceded_term)
-            followed_term_idx = query.index(followed_term)
-            query[followed_term_idx] = res_lst
-            continue
-        elif isinstance(preceded_term, list) and isinstance(followed_term, str):
-            # case term_1 is a list of positional index
-            res_1_lst = preceded_term
-            term_2 = followed_term
-            res_lst = []
-            for res_1 in res_1_lst:
-                docID_1 = res_1[0]
+        term_1 = preceded_term
+        term_2 = followed_term
+        if isinstance(preceded_term, str):
+            if isinstance(followed_term, str):
+                res_lst = []
+                term_1 = preceded_term
+                term_2 = followed_term
+                res_1_lst = []
+                if term_1 in term_dict.keys():
+                    for docID_1 in term_dict[term_1]:
+                        term_1_pos_lst = term_dict[term_1][docID_1]
+                        res = [docID_1, term_1_pos_lst]
+                        if res not in res_lst:
+                            res_1_lst.append(res)
+                            res_lst.append(res)
                 if term_2 in term_dict.keys():
+                    if len(res_1_lst):
+                        for idx, res_1 in enumerate(res_1_lst):
+                            docID_1 = res_1[0]
+                            if term_2 in term_dict.keys():
+                                for docID_2 in term_dict[term_2].keys():
+                                    term_2_pos_lst = term_dict[term_2][docID_2]
+                                    if docID_1 == docID_2:
+                                        res_lst[idx][1] = sorted(
+                                            res_1[1] + term_2_pos_lst)
+                                    else:
+                                        res_2 = [docID_2]
+                                        res_2.append(term_2_pos_lst)
+                                        res_lst.append(res_2)
+                    else:
+                        if term_2 in term_dict.keys():
+                            for docID_2 in term_dict[term_2].keys():
+                                term_2_pos_lst = term_dict[term_2][docID_2]
+                                res = [docID_2, term_2_pos_lst]
+                                if res not in res_lst:
+                                    res_lst.append(res)
+                # after process |, remove processed elements
+                # and replace with the list
+                ans_lst.pop(or_idx)
+                ans_lst.remove(preceded_term)
+                followed_term_idx = ans_lst.index(followed_term)
+                ans_lst[followed_term_idx] = res_lst
+                continue
+            elif isinstance(followed_term, list):
+                # case term_1 is a list of positional index
+                res_2_lst = followed_term
+                term_1 = preceded_term
+                res_lst = []
+                for res_2 in res_2_lst:
+                    docID_2 = res_2[0]
+                    if term_1 in term_dict.keys():
+                        for docID_1 in term_dict[term_1].keys():
+                            term_1_pos_lst = term_dict[term_1][docID_1]
+                            if docID_1 == docID_2:
+                                res_2[1] = sorted(res_2[1] + term_1_pos_lst)
+                                if res_2 not in res_lst:
+                                    res_lst.append(res_2)
+                            else:
+                                res_1 = [docID_1]
+                                res_1.append(term_1_pos_lst)
+                                if res_1 not in res_lst:
+                                    res_lst.append(res_1)
+                    elif term_1 not in term_dict.keys():
+                        res_lst.append(res_2)
+                # after process |, remove processed elements
+                # and replace with the list
+                ans_lst.pop(or_idx)
+                ans_lst.remove(preceded_term)
+                followed_term_idx = ans_lst.index(followed_term)
+                ans_lst[followed_term_idx] = res_lst
+                continue
+            elif followed_term == None:
+                res_lst = []
+                term_1 = preceded_term
+                term_2 = followed_term
+                if term_1 in term_dict.keys():
+                    for docID_1 in term_dict[term_1].keys():
+                        term_pos_lst = term_dict[term_1][docID_1]
+                        res = [docID_1, term_pos_lst]
+                        res_lst.append(res)
+                # after process |, remove processed elements
+                # and replace with the list
+                ans_lst.pop(or_idx)
+                ans_lst.remove(preceded_term)
+                followed_term_idx = ans_lst.index(followed_term)
+                ans_lst[followed_term_idx] = res_lst
+                continue
+        elif isinstance(followed_term, str):
+            if isinstance(preceded_term, list):
+                # case term_1 is a list of positional index
+                res_1_lst = preceded_term
+                term_2 = followed_term
+                res_lst = []
+                for res_1 in res_1_lst:
+                    docID_1 = res_1[0]
+                    if term_2 in term_dict.keys():
+                        for docID_2 in term_dict[term_2].keys():
+                            term_2_pos_lst = term_dict[term_2][docID_2]
+                            if docID_1 == docID_2:
+                                res_1[1] = sorted(res_1[1] + term_2_pos_lst)
+                                res_lst.append(res_1)
+                            else:
+                                res_2 = [docID_2]
+                                res_2.append(term_2_pos_lst)
+                                res_lst.append(res_2)
+                    elif term_2 not in term_dict.keys():
+                        res_lst.append(res_1)
+                # after process |, remove processed elements
+                # and replace with the list
+                ans_lst.pop(or_idx)
+                ans_lst.remove(preceded_term)
+                followed_term_idx = ans_lst.index(followed_term)
+                ans_lst[followed_term_idx] = res_lst
+                continue
+            elif preceded_term == None:
+                res_lst = []
+                term_1 = preceded_term
+                term_2 = followed_term
+                if term_2 in term_dict.keys():
+                    res_dict = term_dict[term_2]
                     for docID_2 in term_dict[term_2].keys():
-                        term_2_pos_lst = term_dict[term_2][docID_2]
-                        if docID_1 == docID_2:
-                            res_1[1] = sorted(res_1[1] + term_2_pos_lst)
-                            res_lst.append(res_1)
-                        else:
-                            res_2 = [docID_2]
-                            res_2.append(term_2_pos_lst)
-                            res_lst.append(res_2)
-            # after process |, remove processed elements
-            # and replace with the list
-            query.pop(or_idx)
-            query.remove(preceded_term)
-            followed_term_idx = query.index(followed_term)
-            query[followed_term_idx] = res_lst
-            continue
-        elif isinstance(preceded_term, str) and isinstance(followed_term, list):
-            # case term_1 is a list of positional index
-            res_lst = followed_term
-            if preceded_term in term_dict.keys():
-                for docID in term_dict[preceded_term]:
-                    pos_idx_lst = term_dict[preceded_term][docID]
-                    res = [docID]
-                    res.append([idx for idx in pos_idx_lst])
-                    res_lst.append(res)
-            # after process |, remove processed elements
-            # and replace with the list
-            query.pop(or_idx)
-            query.remove(preceded_term)
-            followed_term_idx = query.index(followed_term)
-            query[followed_term_idx] = res_lst
-            continue
+                        term_pos_lst = term_dict[term_2][docID_2]
+                        res = [docID_2, term_pos_lst]
+                        res_lst.append(res)
+                # after process |, remove processed elements
+                # and replace with the list
+                ans_lst.pop(or_idx)
+                ans_lst.remove(preceded_term)
+                followed_term_idx = ans_lst.index(followed_term)
+                ans_lst[followed_term_idx] = res_lst
+                continue
         # case both preceded and followed terms are list
-        else:
-            res_lst = preceded_term
-            for res in followed_term:
-                res_lst.append(res)
-            # after process |, remove processed elements
-            # and replace with the list
-            query.pop(or_idx)
-            query.remove(preceded_term)
-            followed_term_idx = query.index(followed_term)
-            query[followed_term_idx] = res_lst
-            continue
-    return query
+        elif isinstance(preceded_term, list):
+            if isinstance(followed_term, list):
+                res_1_lst = preceded_term
+                res_2_lst = followed_term
+                res_lst = []
+                if len(res_1_lst):
+                    for idx, res_1 in enumerate(res_1_lst):
+                        docID_1 = res_1[0]
+                        term_1_pos_lst = res_1[1]
+                        res = [docID_1, term_1_pos_lst]
+                        if res not in res_lst:
+                            res_lst.append(res)
+                        for res_2 in res_2_lst:
+                            docID_2 = res_2[0]
+                            term_2_pos_lst = res_2[1]
+                            if docID_1 == docID_2:
+                                res_lst[idx][1] = sorted(
+                                    term_1_pos_lst + term_2_pos_lst)
+                            else:
+                                res = [docID_2, term_2_pos_lst]
+                                res_lst.append(res)
+                else:
+                    for res_2 in res_2_lst:
+                        docID_2 = res_2[0]
+                        term_2_pos_lst = term_dict[term_2][docID_2]
+                        res = [docID_2, term_2_pos_lst]
+                        if res not in res_lst:
+                            res_lst.append(res)
+                # after process |, remove processed elements
+                # and replace with the list
+                ans_lst.pop(or_idx)
+                ans_lst.remove(preceded_term)
+                followed_term_idx = ans_lst.index(followed_term)
+                ans_lst[followed_term_idx] = res_lst
+                continue
+            elif followed_term == None:
+                res_lst = preceded_term
+                # after process |, remove processed elements
+                # and replace with the list
+                ans_lst.pop(or_idx)
+                ans_lst.remove(preceded_term)
+                followed_term_idx = ans_lst.index(followed_term)
+                ans_lst[followed_term_idx] = res_lst
+                continue
+    return ans_lst
 
 
 # query processing for numerical connector +n
@@ -412,142 +519,185 @@ def process_plus_n(term_dict, query):
     while idx <= len(query) - 2:
         elem = query[idx]
         if elem.find("+") != -1 and elem[1:].isnumeric():
-            ans = []
+            res_lst = []
             term_1 = query[idx - 1]
             term_2 = query[idx + 1]
             n = int(elem[1:])
             # case both term_1 and term_2 are string
-            if isinstance(term_1, str) and isinstance(term_2, str):
-                # find how many docID contains term_1 and term_2
-                if term_1 in term_dict.keys() and term_2 in term_dict.keys():
-                    docID_term_1 = set(term_dict[term_1].keys())
-                    docID_term_2 = set(term_dict[term_2].keys())
-                    intersect_docID = docID_term_1.intersection(
-                        docID_term_2)
-                    for docID in intersect_docID:
-                        lst = []
-                        term_1_pos_lst = term_dict[term_1][docID]
-                        term_2_pos_lst = term_dict[term_2][docID]
-                        for term_1_pos in term_1_pos_lst:
-                            for term_2_pos in term_2_pos_lst:
-                                if term_2_pos - term_1_pos > 0 and term_2_pos - term_1_pos <= n:
-                                    lst.append(term_2_pos)
-                                elif term_2_pos > term_1_pos:
-                                    break
-                            for term_2_pos in lst:
-                                if term_2_pos - term_1_pos < 0 or term_2_pos - term_1_pos > n:
-                                    lst.remove(term_2_pos)
-                            for term_2_pos in lst:
-                                res = [docID_1, [term_1_pos, term_2_pos]]
-                                if res not in ans:
-                                    ans.append(res)
-                    # after process |, remove processed elements
-                    # and replace with the list
-                    ans_lst.pop(idx)
-                    ans_lst.remove(term_1)
-                    term_2_idx = ans_lst.index(term_2)
-                    ans_lst[term_2_idx] = ans
-                    idx = 1
-                    continue
-            # case term_1 is a list and term_2 is a string
-            elif isinstance(term_1, list) and isinstance(term_2, str):
-                res_lst_1 = term_1
-                for res_1 in res_lst_1:
-                    docID = res_1[0]
-                    # if term_2 is in the same docID with res
-                    # check if it's preceded by n by res
-                    if term_2 in term_dict.keys():
-                        if docID in term_dict[term_2].keys():
+            if isinstance(term_1, str):
+                if isinstance(term_2, str):
+                    # find how many docID contains term_1 and term_2
+                    if term_1 in term_dict.keys() and term_2 in term_dict.keys():
+                        docID_term_1 = set(term_dict[term_1].keys())
+                        docID_term_2 = set(term_dict[term_2].keys())
+                        intersect_docID = docID_term_1.intersection(
+                            docID_term_2)
+                        for docID in intersect_docID:
                             lst = []
-                            term_1_pos_lst = res_1[1]
+                            term_1_pos_lst = term_dict[term_1][docID]
                             term_2_pos_lst = term_dict[term_2][docID]
                             for term_1_pos in term_1_pos_lst:
                                 for term_2_pos in term_2_pos_lst:
                                     if term_2_pos - term_1_pos > 0 and term_2_pos - term_1_pos <= n:
                                         lst.append(term_2_pos)
-                                for term_2_pos in lst:
-                                    if term_2_pos - term_1_pos < 0 or term_2_pos - term_1_pos > n:
-                                        lst.remove(term_2_pos)
                                     elif term_2_pos > term_1_pos:
                                         break
                                 for term_2_pos in lst:
-                                    res = [docID_1, [term_1_pos, term_2_pos]]
-                                    if res not in ans:
-                                        ans.append(res)
-                # after process |, remove processed elements
-                # and replace with the list
-                ans_lst.pop(idx)
-                ans_lst.remove(term_1)
-                term_2_idx = ans_lst.index(term_2)
-                ans_lst[term_2_idx] = ans
-                idx = 1
-                continue
-            elif isinstance(term_1, str) and isinstance(term_2, list):
-                res_lst_1 = term_2
-                for res_1 in res_lst_1:
-                    docID = res_1[0]
-                    # if term_2 is in the same docID with res
-                    # check if it's preceded by n by res
-                    if term_1 in term_dict.keys():
-                        if docID in term_dict[term_1].keys():
-                            lst = []
-                            term_1_pos_lst = term_dict[term_1][docID]
-                            term_2_pos_lst = res_1[1]
-                            for term_1_pos in term_1_pos_lst:
-                                for term_2_pos in term_2_pos_lst:
-                                    if term_2_pos - term_1_pos > 0 and term_2_pos - term_1_pos <= n:
-                                        lst.append(term_2_pos)
-                                for term_2_pos in lst:
                                     if term_2_pos - term_1_pos < 0 or term_2_pos - term_1_pos > n:
                                         lst.remove(term_2_pos)
-                                    elif term_2_pos > term_1_pos:
-                                        break
                                 for term_2_pos in lst:
-                                    res = [docID_1, [term_1_pos, term_2_pos]]
-                                    if res not in ans:
-                                        ans.append(res)
-                # after process |, remove processed elements
-                # and replace with the list
-                ans_lst.pop(idx)
-                ans_lst.remove(term_1)
-                term_2_idx = ans_lst.index(term_2)
-                ans_lst[term_2_idx] = ans
-                idx = 1
-                print(ans)
-                continue
-            elif isinstance(term_1, list) and isinstance(term_2, list):
-                res_lst_1 = term_1
-                res_lst_2 = term_2
-                for res_1 in res_lst_1:
-                    docID_1 = res_1[0]
-                    for res_2 in res_lst_2:
+                                    res = [docID, sorted(
+                                        [term_1_pos, term_2_pos])]
+                                    if res not in res_lst:
+                                        res_lst.append(res)
+                        # after process +n, remove processed elements
+                        # and replace with the list
+                        ans_lst.pop(idx)
+                        ans_lst.remove(term_1)
+                        term_2_idx = ans_lst.index(term_2)
+                        ans_lst[term_2_idx] = res_lst
+                        idx = 1
+                        continue
+                    elif term_1 not in term_dict.keys() or term_2 not in term_dict.keys():
+                        # after process +n, remove processed elements
+                        # and replace with the list
+                        ans_lst.pop(idx)
+                        ans_lst.remove(term_1)
+                        term_2_idx = ans_lst.index(term_2)
+                        ans_lst[term_2_idx] = res_lst
+                        idx = 1
+                        continue
+                elif isinstance(term_2, list):
+                    res_2_lst = term_2
+                    for res_2 in res_2_lst:
                         docID_2 = res_2[0]
-                        if docID_1 == docID_2:
-                            lst = []
-                            term_1_pos_lst = res_1[1]
-                            term_2_pos_lst = res_2[1]
-                            for term_1_pos in term_1_pos_lst:
-                                for term_2_pos in term_2_pos_lst:
-                                    if term_2_pos - term_1_pos > 0 and term_2_pos - term_1_pos <= n:
-                                        lst.append(term_2_pos)
-                                for term_2_pos in lst:
-                                    if term_2_pos - term_1_pos < 0 or term_2_pos - term_1_pos > n:
-                                        lst.remove(term_2_pos)
-                                    elif term_2_pos > term_1_pos:
-                                        break
-                                for term_2_pos in lst:
-                                    res = [docID_1, [term_1_pos, term_2_pos]]
-                                    if res not in ans:
-                                        ans.append(res)
-                # after process |, remove processed elements
-                # and replace with the list
-                ans_lst.pop(idx)
-                ans_lst.remove(term_1)
-                term_2_idx = ans_lst.index(term_2)
-                ans_lst[term_2_idx] = ans
-                idx = 1
-                print(ans)
-                continue
+                        # if term_2 is in the same docID with res
+                        # check if it's preceded by n by res
+                        if term_1 in term_dict.keys():
+                            if docID_2 in term_dict[term_1].keys():
+                                docID_1 = docID_2
+                                lst = []
+                                term_1_pos_lst = term_dict[term_1][docID_1]
+                                term_2_pos_lst = res_2[1]
+                                for term_1_pos in term_1_pos_lst:
+                                    for term_2_pos in term_2_pos_lst:
+                                        if term_2_pos - term_1_pos > 0 and term_2_pos - term_1_pos <= n:
+                                            lst.append(term_2_pos)
+                                    for term_2_pos in lst:
+                                        if term_2_pos - term_1_pos < 0 or term_2_pos - term_1_pos > n:
+                                            lst.remove(term_2_pos)
+                                        elif term_2_pos > term_1_pos:
+                                            break
+                                    for term_2_pos in lst:
+                                        res = [
+                                            docID_1, sorted([term_1_pos, term_2_pos])]
+                                        print(res)
+                                        if res not in res_lst:
+                                            res_lst.append(res)
+                    # after process |, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(idx)
+                    ans_lst.remove(term_1)
+                    term_2_idx = ans_lst.index(term_2)
+                    ans_lst[term_2_idx] = res_lst
+                    idx = 1
+                    continue
+                elif term_2 == None:
+                    # after process |, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(idx)
+                    ans_lst.remove(term_1)
+                    term_2_idx = ans_lst.index(term_2)
+                    ans_lst[term_2_idx] = res_lst
+                    idx = 1
+                    continue
+            # case term_1 is a list and term_2 is a string
+            elif isinstance(term_2, str):
+                if isinstance(term_1, list):
+                    res_lst_1 = term_1
+                    for res_1 in res_lst_1:
+                        docID_1 = res_1[0]
+                        # if term_2 is in the same docID with res
+                        # check if it's preceded by n by res
+                        if term_2 in term_dict.keys():
+                            if docID_1 in term_dict[term_2].keys():
+                                docID_2 = docID_1
+                                lst = []
+                                term_1_pos_lst = res_1[1]
+                                term_2_pos_lst = term_dict[term_2][docID_2]
+                                for term_1_pos in term_1_pos_lst:
+                                    for term_2_pos in term_2_pos_lst:
+                                        if term_2_pos - term_1_pos > 0 and term_2_pos - term_1_pos <= n:
+                                            lst.append(term_2_pos)
+                                    for term_2_pos in lst:
+                                        if term_2_pos - term_1_pos < 0 or term_2_pos - term_1_pos > n:
+                                            lst.remove(term_2_pos)
+                                        elif term_2_pos > term_1_pos:
+                                            break
+                                    for term_2_pos in lst:
+                                        res = [
+                                            docID_1, sorted([term_1_pos, term_2_pos])]
+                                        if res not in res_lst:
+                                            res_lst.append(res)
+                    # after process |, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(idx)
+                    ans_lst.remove(term_1)
+                    term_2_idx = ans_lst.index(term_2)
+                    ans_lst[term_2_idx] = res_lst
+                    idx = 1
+                    continue
+                elif term_1 == None:
+                    # after process |, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(idx)
+                    ans_lst.remove(term_1)
+                    term_2_idx = ans_lst.index(term_2)
+                    ans_lst[term_2_idx] = res_lst
+                    idx = 1
+                    continue
+            elif isinstance(term_1, list):
+                if isinstance(term_2, list):
+                    res_lst_1 = term_1
+                    res_lst_2 = term_2
+                    for res_1 in res_lst_1:
+                        docID_1 = res_1[0]
+                        for res_2 in res_lst_2:
+                            docID_2 = res_2[0]
+                            if docID_1 == docID_2:
+                                lst = []
+                                term_1_pos_lst = res_1[1]
+                                term_2_pos_lst = res_2[1]
+                                for term_1_pos in term_1_pos_lst:
+                                    for term_2_pos in term_2_pos_lst:
+                                        if term_2_pos - term_1_pos > 0 and term_2_pos - term_1_pos <= n:
+                                            lst.append(term_2_pos)
+                                    for term_2_pos in lst:
+                                        if term_2_pos - term_1_pos < 0 or term_2_pos - term_1_pos > n:
+                                            lst.remove(term_2_pos)
+                                        elif term_2_pos > term_1_pos:
+                                            break
+                                    for term_2_pos in lst:
+                                        res = [
+                                            docID_1, sorted([term_1_pos, term_2_pos])]
+                                        if res not in res_lst:
+                                            res_lst.append(res)
+                    # after process +n, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(idx)
+                    ans_lst.remove(term_1)
+                    term_2_idx = ans_lst.index(term_2)
+                    ans_lst[term_2_idx] = res_lst
+                    idx = 1
+                    continue
+                elif term_2 == None:
+                    # after process +n, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(idx)
+                    ans_lst.remove(term_1)
+                    term_2_idx = ans_lst.index(term_2)
+                    ans_lst[term_2_idx] = res_lst
+                    idx = 1
         idx += 2
     return ans_lst
 
@@ -561,53 +711,22 @@ def process_slash_n(term_dict, query):
     while idx <= len(query) - 2:
         elem = query[idx]
         if elem.find("/") != -1 and elem[1:].isnumeric():
-            ans = []
+            res_lst = []
             term_1 = query[idx - 1]
             term_2 = query[idx + 1]
             n = int(elem[1:])
             # case both term_1 and term_2 are string
-            if isinstance(term_1, str) and isinstance(term_2, str):
-                # find how many docID contains term_1 and term_2
-                if term_1 in term_dict.keys() and term_2 in term_dict.keys():
-                    docID_term_1 = set(term_dict[term_1].keys())
-                    docID_term_2 = set(term_dict[term_2].keys())
-                    intersect_docID = docID_term_1.intersection(
-                        docID_term_2)
-                    for docID in intersect_docID:
-                        lst = []
-                        term_1_pos_lst = term_dict[term_1][docID]
-                        term_2_pos_lst = term_dict[term_2][docID]
-                        for term_1_pos in term_1_pos_lst:
-                            for term_2_pos in term_2_pos_lst:
-                                if abs(term_2_pos - term_1_pos) <= n:
-                                    lst.append(term_2_pos)
-                                elif term_2_pos > term_1_pos:
-                                    break
-                            while lst != [] and abs(lst[0] - term_1_pos) > n:
-                                lst.remove(lst[0])
-                            for term_2_pos in lst:
-                                res = [docID, [term_1_pos, term_2_pos]]
-                                if res not in ans:
-                                    ans.append(res)
-                    # after process |, remove processed elements
-                    # and replace with the list
-                    ans_lst.pop(idx)
-                    ans_lst.remove(term_1)
-                    term_2_idx = ans_lst.index(term_2)
-                    ans_lst[term_2_idx] = ans
-                    idx = 1
-                    continue
-            # case term_1 is a list and term_2 is a string
-            elif isinstance(term_1, list) and isinstance(term_2, str):
-                res_lst_1 = term_1
-                for res_1 in res_lst_1:
-                    docID = res_1[0]
-                    # if term_2 is in the same docID with res
-                    # check if it's preceded by n by res
-                    if term_2 in term_dict.keys():
-                        if docID in term_dict[term_2].keys():
+            if isinstance(term_1, str):
+                if isinstance(term_2, str):
+                    # find how many docID contains term_1 and term_2
+                    if term_1 in term_dict.keys() and term_2 in term_dict.keys():
+                        docID_term_1 = set(term_dict[term_1].keys())
+                        docID_term_2 = set(term_dict[term_2].keys())
+                        intersect_docID = docID_term_1.intersection(
+                            docID_term_2)
+                        for docID in intersect_docID:
                             lst = []
-                            term_1_pos_lst = res_1[1]
+                            term_1_pos_lst = term_dict[term_1][docID]
                             term_2_pos_lst = term_dict[term_2][docID]
                             for term_1_pos in term_1_pos_lst:
                                 for term_2_pos in term_2_pos_lst:
@@ -618,79 +737,153 @@ def process_slash_n(term_dict, query):
                                 while lst != [] and abs(lst[0] - term_1_pos) > n:
                                     lst.remove(lst[0])
                                 for term_2_pos in lst:
-                                    res = [docID, [term_1_pos, term_2_pos]]
-                                    if res not in ans:
-                                        ans.append(res)
-                # after process |, remove processed elements
-                # and replace with the list
-                ans_lst.pop(idx)
-                ans_lst.remove(term_1)
-                term_2_idx = ans_lst.index(term_2)
-                ans_lst[term_2_idx] = ans
-                idx = 1
-                continue
-            elif isinstance(term_1, str) and isinstance(term_2, list):
-                res_lst_1 = term_2
-                for res_1 in res_lst_1:
-                    docID = res_1[0]
-                    # if term_2 is in the same docID with res
-                    # check if it's preceded by n by res
-                    if term_1 in term_dict.keys():
-                        if docID in term_dict[term_1].keys():
-                            lst = []
-                            term_1_pos_lst = term_dict[term_1][docID]
-                            term_2_pos_lst = res_1[1]
-                            for term_1_pos in term_1_pos_lst:
-                                for term_2_pos in term_2_pos_lst:
-                                    if abs(term_1_pos - term_2_pos) <= n:
-                                        lst.append(term_2_pos)
-                                    elif term_2_pos > term_1_pos:
-                                        break
-                                while lst != [] and abs(lst[0] - term_1_pos) > n:
-                                    lst.remove(lst[0])
-                                for term_2_pos in lst:
-                                    res = [docID, [term_1_pos, term_2_pos]]
-                                    if res not in ans:
-                                        ans.append(res)
-                # after process |, remove processed elements
-                # and replace with the list
-                ans_lst.pop(idx)
-                ans_lst.remove(term_1)
-                term_2_idx = ans_lst.index(term_2)
-                ans_lst[term_2_idx] = ans
-                idx = 1
-                continue
-            elif isinstance(term_1, list) and isinstance(term_2, list):
-                res_lst_1 = term_1
-                res_lst_2 = term_2
-                for res_1 in res_lst_1:
-                    docID_1 = res_1[0]
-                    for res_2 in res_lst_2:
-                        docID_2 = res_2[0]
-                        if docID_1 == docID_2:
-                            lst = []
-                            term_1_pos_lst = res_1[1]
-                            term_2_pos_lst = res_2[1]
-                            for term_1_pos in term_1_pos_lst:
-                                for term_2_pos in term_2_pos_lst:
-                                    if abs(term_2_pos - term_1_pos) <= n:
-                                        lst.append(term_2_pos)
-                                    elif term_2_pos > term_1_pos:
-                                        break
-                                while lst != [] and abs(lst[0] - term_1_pos) > n:
-                                    lst.remove(lst[0])
-                                for term_2_pos in lst:
-                                    res = [docID_1, [term_1_pos, term_2_pos]]
-                                    if res not in ans:
-                                        ans.append(res)
-                # after process |, remove processed elements
-                # and replace with the list
-                ans_lst.pop(idx)
-                ans_lst.remove(term_1)
-                term_2_idx = ans_lst.index(term_2)
-                ans_lst[term_2_idx] = ans
-                idx = 1
-                continue
+                                    res = [docID, sorted(
+                                        [term_1_pos, term_2_pos])]
+                                    if res not in res_lst:
+                                        res_lst.append(res)
+                        # after process |, remove processed elements
+                        # and replace with the list
+                        ans_lst.pop(idx)
+                        ans_lst.remove(term_1)
+                        term_2_idx = ans_lst.index(term_2)
+                        ans_lst[term_2_idx] = res_lst
+                        idx = 1
+                        continue
+                    elif term_1 not in term_dict.keys() or term_2 not in term_dict.keys():
+                        # after process +n, remove processed elements
+                        # and replace with the list
+                        ans_lst.pop(idx)
+                        ans_lst.remove(term_1)
+                        term_2_idx = ans_lst.index(term_2)
+                        ans_lst[term_2_idx] = res_lst
+                        idx = 1
+                        continue
+                elif isinstance(term_2, list):
+                    res_lst_1 = term_2
+                    for res_1 in res_lst_1:
+                        docID = res_1[0]
+                        # if term_2 is in the same docID with res
+                        # check if it's preceded by n by res
+                        if term_1 in term_dict.keys():
+                            if docID in term_dict[term_1].keys():
+                                lst = []
+                                term_1_pos_lst = term_dict[term_1][docID]
+                                term_2_pos_lst = res_1[1]
+                                for term_1_pos in term_1_pos_lst:
+                                    for term_2_pos in term_2_pos_lst:
+                                        if abs(term_1_pos - term_2_pos) <= n:
+                                            lst.append(term_2_pos)
+                                        elif term_2_pos > term_1_pos:
+                                            break
+                                    while lst != [] and abs(lst[0] - term_1_pos) > n:
+                                        lst.remove(lst[0])
+                                    for term_2_pos in lst:
+                                        res = [docID, sorted(
+                                            [term_1_pos, term_2_pos])]
+                                        if res not in res_lst:
+                                            res_lst.append(res)
+                    # after process |, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(idx)
+                    ans_lst.remove(term_1)
+                    term_2_idx = ans_lst.index(term_2)
+                    ans_lst[term_2_idx] = res_lst
+                    idx = 1
+                    continue
+                elif term_2 == None:
+                    # after process |, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(idx)
+                    ans_lst.remove(term_1)
+                    term_2_idx = ans_lst.index(term_2)
+                    ans_lst[term_2_idx] = res_lst
+                    idx = 1
+                    continue
+            # case term_2 is a string
+            elif isinstance(term_2, str):
+                if isinstance(term_1, list):
+                    res_lst_1 = term_1
+                    for res_1 in res_lst_1:
+                        docID = res_1[0]
+                        # if term_2 is in the same docID with res
+                        # check if it's preceded by n by res
+                        if term_2 in term_dict.keys():
+                            if docID in term_dict[term_2].keys():
+                                lst = []
+                                term_1_pos_lst = res_1[1]
+                                term_2_pos_lst = term_dict[term_2][docID]
+                                for term_1_pos in term_1_pos_lst:
+                                    for term_2_pos in term_2_pos_lst:
+                                        if abs(term_2_pos - term_1_pos) <= n:
+                                            lst.append(term_2_pos)
+                                        elif term_2_pos > term_1_pos:
+                                            break
+                                    while lst != [] and abs(lst[0] - term_1_pos) > n:
+                                        lst.remove(lst[0])
+                                    for term_2_pos in lst:
+                                        res = [docID, sorted(
+                                            [term_1_pos, term_2_pos])]
+                                        if res not in res_lst:
+                                            res_lst.append(res)
+                    # after process |, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(idx)
+                    ans_lst.remove(term_1)
+                    term_2_idx = ans_lst.index(term_2)
+                    ans_lst[term_2_idx] = res_lst
+                    idx = 1
+                    continue
+                elif term_1 == None:
+                    # after process |, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(idx)
+                    ans_lst.remove(term_1)
+                    term_2_idx = ans_lst.index(term_2)
+                    ans_lst[term_2_idx] = res_lst
+                    idx = 1
+                    continue
+            elif isinstance(term_1, list):
+                if isinstance(term_2, list):
+                    res_lst_1 = term_1
+                    res_lst_2 = term_2
+                    for res_1 in res_lst_1:
+                        docID_1 = res_1[0]
+                        for res_2 in res_lst_2:
+                            docID_2 = res_2[0]
+                            if docID_1 == docID_2:
+                                lst = []
+                                term_1_pos_lst = res_1[1]
+                                term_2_pos_lst = res_2[1]
+                                for term_1_pos in term_1_pos_lst:
+                                    for term_2_pos in term_2_pos_lst:
+                                        if abs(term_2_pos - term_1_pos) <= n:
+                                            lst.append(term_2_pos)
+                                        elif term_2_pos > term_1_pos:
+                                            break
+                                    while lst != [] and abs(lst[0] - term_1_pos) > n:
+                                        lst.remove(lst[0])
+                                    for term_2_pos in lst:
+                                        res = [
+                                            docID_1, sorted([term_1_pos, term_2_pos])]
+                                        if res not in res_lst:
+                                            res_lst.append(res)
+                    # after process |, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(idx)
+                    ans_lst.remove(term_1)
+                    term_2_idx = ans_lst.index(term_2)
+                    ans_lst[term_2_idx] = res_lst
+                    idx = 1
+                    continue
+                elif term_1 == None:
+                    # after process |, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(idx)
+                    ans_lst.remove(term_1)
+                    term_2_idx = ans_lst.index(term_2)
+                    ans_lst[term_2_idx] = res_lst
+                    idx = 1
+                    continue
         idx += 2
     return ans_lst
 
@@ -719,159 +912,6 @@ def find_previous_punctuation_index(term_dict, docID, index):
             return end_of_sentence_lst[i - 1]
     return -1
 
-# query processing for numerical connector +s
-# the search term must precede the second term in the same sentece
-
-
-def process_plus_s(term_dict, query):
-    ans_lst = query
-    while "+s" in query:
-        # find idx of +s in query_split
-        plus_s_idx = query.index("+s")
-        # preceded_term
-        preceded_term = query[plus_s_idx - 1]
-        # followed_term
-        followed_term = query[plus_s_idx + 1]
-        if isinstance(preceded_term, str) and isinstance(followed_term, str):
-            res_lst = []
-            if preceded_term in term_dict.keys() and followed_term in term_dict.keys():
-                term_1 = preceded_term
-                term_2 = followed_term
-                docID_term_1 = set(term_dict[preceded_term].keys())
-                docID_term_2 = set(term_dict[followed_term].keys())
-                intersect_docID = docID_term_1.intersection(
-                    docID_term_2)
-                for docID in intersect_docID:
-                    lst = []
-                    term_1_pos_lst = term_dict[term_1][docID]
-                    term_2_pos_lst = term_dict[term_2][docID]
-                    for term_2_pos in term_2_pos_lst:
-                        prev_punc_idx = find_previous_punctuation_index(
-                            term_dict, docID, term_2_pos)
-                        for term_1_pos in term_1_pos_lst:
-                            if term_2_pos - term_1_pos > 0 and term_1_pos > prev_punc_idx:
-                                lst.append(term_1_pos)
-                            elif term_1_pos > term_2_pos:
-                                break
-                        for term_1_pos in lst:
-                            if term_2_pos - term_1_pos < 0 or term_1_pos < prev_punc_idx:
-                                lst.remove(term_1_pos)
-                        for term_1_pos in lst:
-                            res_lst.append([docID, [term_1_pos, term_2_pos]])
-                # after process |, remove processed elements
-                # and replace with the list
-                query.pop(plus_s_idx)
-                query.remove(preceded_term)
-                followed_term_idx = query.index(followed_term)
-                query[followed_term_idx] = res_lst
-                continue
-        elif isinstance(preceded_term, list) and isinstance(followed_term, str):
-            # case term_1 is a list of positional index
-            res_1_lst = preceded_term
-            term_2 = followed_term
-            res_lst = []
-            for res_1 in res_1_lst:
-                docID = res_1[0]
-                if term_2 in term_dict.keys():
-                    if docID in term_dict[term_2].keys():
-                        lst = []
-                        term_1_pos_lst = res_1[1]
-                        term_2_pos_lst = term_dict[term_2][docID]
-                        for term_2_pos in term_2_pos_lst:
-                            prev_punc_idx = find_previous_punctuation_index(
-                                term_dict, docID, term_2_pos)
-                            for term_1_pos in term_1_pos_lst:
-                                if term_2_pos - term_1_pos > 0 and term_1_pos > prev_punc_idx:
-                                    lst.append(term_2_pos)
-                                elif term_1_pos > term_2_pos:
-                                    break
-                            for term_2_pos in lst:
-                                if term_2_pos - term_1_pos < 0:
-                                    lst.remove(term_2_pos)
-                            for term_2_pos in lst:
-                                if term_2_pos not in res_1[1]:
-                                    res_1[1].append(term_2_pos)
-                                if res_1 not in res_lst:
-                                    res_lst.append(res_1)
-            # after process |, remove processed elements
-            # and replace with the list
-            query.pop(plus_s_idx)
-            query.remove(preceded_term)
-            followed_term_idx = query.index(followed_term)
-            query[followed_term_idx] = res_lst
-            continue
-        elif isinstance(preceded_term, str) and isinstance(followed_term, list):
-            # case term_1 is a list of positional index
-            term_1 = preceded_term
-            res_2_lst = followed_term
-            res_lst = []
-            for res_2 in res_2_lst:
-                docID = res_2[0]
-                if term_1 in term_dict.keys():
-                    if docID in term_dict[term_1].keys():
-                        lst = []
-                        term_1_pos_lst = term_dict[term_1][docID]
-                        term_2_pos_lst = res_2[1]
-                        for term_2_pos in term_2_pos_lst:
-                            prev_punc_idx = find_previous_punctuation_index(
-                                term_dict, docID, term_2_pos)
-                            for term_1_pos in term_1_pos_lst:
-                                if term_2_pos - term_1_pos > 0 and term_1_pos > prev_punc_idx:
-                                    if term_1_pos not in lst:
-                                        lst.append(term_1_pos)
-                                    lst.append(term_2_pos)
-                                elif term_1_pos > term_2_pos:
-                                    break
-                            if len(lst):
-                                res = [docID, lst]
-                                if res not in res_lst:
-                                    res_lst.append(res)
-            # after process |, remove processed elements
-            # and replace with the list
-            query.pop(plus_s_idx)
-            query.remove(preceded_term)
-            followed_term_idx = query.index(followed_term)
-            query[followed_term_idx] = res_lst
-            continue
-        elif isinstance(preceded_term, list) and isinstance(followed_term, list):
-            res_1_lst = preceded_term
-            res_2_lst = followed_term
-            res_lst = []
-            for res_1 in res_1_lst:
-                docID_1 = res_1[0]
-                for res_2 in res_2_lst:
-                    docID_2 = res_2[0]
-                    if docID_1 == docID_2:
-                        docID = docID_1
-                        lst = []
-                        term_1_pos_lst = res_1[1]
-                        term_2_pos_lst = res_2[1]
-                        for term_2_pos in term_2_pos_lst:
-                            prev_punc_idx = find_previous_punctuation_index(
-                                term_dict, docID, term_2_pos)
-                            for term_1_pos in term_1_pos_lst:
-                                if term_2_pos - term_1_pos > 0 and term_1_pos > prev_punc_idx:
-                                    lst.append(term_2_pos)
-                                elif term_1_pos > term_2_pos:
-                                    break
-                            for term_2_pos in lst:
-                                if term_2_pos - term_1_pos < 0:
-                                    lst.remove(term_2_pos)
-                            for term_2_pos in lst:
-                                if term_2_pos not in term_1_pos_lst:
-                                    term_1_pos_lst.append(term_2_pos)
-                                res = [docID, term_1_pos_lst]
-                                if res not in res_lst:
-                                    res_lst.append(res)
-            # after process |, remove processed elements
-            # and replace with the list
-            query.pop(plus_s_idx)
-            query.remove(preceded_term)
-            followed_term_idx = query.index(followed_term)
-            query[followed_term_idx] = res_lst
-            continue
-    return query
-
 # find the index of next end of sentence
 
 
@@ -896,6 +936,197 @@ def find_next_punctuation_index(term_dict, docID, index):
             return end_of_sentence_lst[i]
     return -1
 
+# query processing for numerical connector +s
+# the search term must precede the second term in the same sentece
+
+
+def process_plus_s(term_dict, query):
+    ans_lst = query
+    while "+s" in query:
+        # find idx of +s in query_split
+        plus_s_idx = query.index("+s")
+        # preceded_term
+        preceded_term = query[plus_s_idx - 1]
+        # followed_term
+        followed_term = query[plus_s_idx + 1]
+        term_1 = preceded_term
+        term_2 = followed_term
+        res_lst = []
+        if isinstance(preceded_term, str):
+            if isinstance(followed_term, str):
+                if term_1 in term_dict.keys() and term_2 in term_dict.keys():
+                    docID_term_1 = set(term_dict[preceded_term].keys())
+                    docID_term_2 = set(term_dict[followed_term].keys())
+                    intersect_docID = docID_term_1.intersection(
+                        docID_term_2)
+                    for docID in intersect_docID:
+                        lst = []
+                        term_1_pos_lst = term_dict[term_1][docID]
+                        term_2_pos_lst = term_dict[term_2][docID]
+                        for term_2_pos in term_2_pos_lst:
+                            prev_punc_idx = find_previous_punctuation_index(
+                                term_dict, docID, term_2_pos)
+                            for term_1_pos in term_1_pos_lst:
+                                if term_2_pos - term_1_pos > 0 and term_1_pos > prev_punc_idx:
+                                    lst.append(term_1_pos)
+                                elif term_1_pos > term_2_pos:
+                                    break
+                            for term_1_pos in lst:
+                                if term_2_pos - term_1_pos < 0 or term_1_pos < prev_punc_idx:
+                                    lst.remove(term_1_pos)
+                            for term_1_pos in lst:
+                                res = [docID, [term_1_pos, term_2_pos]]
+                                if res not in res_lst:
+                                    res_lst.append(res)
+                    # after process +s, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(plus_s_idx)
+                    ans_lst.remove(preceded_term)
+                    followed_term_idx = ans_lst.index(followed_term)
+                    ans_lst[followed_term_idx] = res_lst
+                    continue
+                elif term_1 not in term_dict.keys() or term_2 not in term_dict.keys():
+                    # after process +s, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(plus_s_idx)
+                    ans_lst.remove(term_1)
+                    term_2_idx = ans_lst.index(term_2)
+                    ans_lst[term_2_idx] = res_lst
+                    continue
+            elif isinstance(term_2, list):
+                # case term_1 is a list of positional index
+                res_2_lst = term_2
+                for res_2 in res_2_lst:
+                    docID_2 = res_2[0]
+                    if term_1 in term_dict.keys():
+                        if docID_2 in term_dict[term_1].keys():
+                            docID_1 = docID_2
+                            lst = []
+                            term_1_pos_lst = term_dict[term_1][docID_1]
+                            term_2_pos_lst = res_2[1]
+                            for term_2_pos in term_2_pos_lst:
+                                prev_punc_idx = find_previous_punctuation_index(
+                                    term_dict, docID_2, term_2_pos)
+                                for term_1_pos in term_1_pos_lst:
+                                    if term_2_pos - term_1_pos > 0 and term_1_pos > prev_punc_idx:
+                                        if term_1_pos not in lst:
+                                            lst.append(term_1_pos)
+                                        lst.append(term_2_pos)
+                                    elif term_1_pos > term_2_pos:
+                                        break
+                                for term_1_pos in lst:
+                                    if term_2_pos - term_1_pos < 0 or term_1_pos < prev_punc_idx:
+                                        lst.remove(term_1_pos)
+                                for term_1_pos in lst:
+                                    res = [docID_1, [term_1_pos, term_2_pos]]
+                                    if res not in res_lst:
+                                        res_lst.append(res)
+                # after process +s, remove processed elements
+                # and replace with the list
+                ans_lst.pop(plus_s_idx)
+                ans_lst.remove(preceded_term)
+                followed_term_idx = ans_lst.index(followed_term)
+                ans_lst[followed_term_idx] = res_lst
+                continue
+            elif term_2 == None:
+                # after process +s, remove processed elements
+                # and replace with the list
+                ans_lst.pop(plus_s_idx)
+                ans_lst.remove(preceded_term)
+                followed_term_idx = ans_lst.index(followed_term)
+                ans_lst[followed_term_idx] = res_lst
+                continue
+        elif isinstance(followed_term, str):
+            if isinstance(term_1, list):
+                # case term_1 is a list of positional index
+                res_1_lst = term_1
+                for res_1 in res_1_lst:
+                    docID_1 = res_1[0]
+                    if term_2 in term_dict.keys():
+                        if docID_1 in term_dict[term_2].keys():
+                            docID_2 = docID_1
+                            lst = []
+                            term_1_pos_lst = res_1[1]
+                            term_2_pos_lst = term_dict[term_2][docID_2]
+                            for term_2_pos in term_2_pos_lst:
+                                prev_punc_idx = find_previous_punctuation_index(
+                                    term_dict, docID_2, term_2_pos)
+                                for term_1_pos in term_1_pos_lst:
+                                    if term_2_pos - term_1_pos > 0 and term_1_pos > prev_punc_idx:
+                                        lst.append(term_1_pos)
+                                    elif term_1_pos > term_2_pos:
+                                        break
+                                for term_1_pos in lst:
+                                    if term_2_pos - term_1_pos < 0 or term_1_pos < prev_punc_idx:
+                                        lst.remove(term_1_pos)
+                                for term_1_pos in lst:
+                                    res = [
+                                        docID_1, [term_1_pos, term_2_pos]]
+                                    if res not in res_lst:
+                                        res_lst.append(res)
+                # after process +s, remove processed elements
+                # and replace with the list
+                ans_lst.pop(plus_s_idx)
+                ans_lst.remove(preceded_term)
+                followed_term_idx = ans_lst.index(followed_term)
+                ans_lst[followed_term_idx] = res_lst
+                continue
+            elif term_1 == None:
+                # after process +s, remove processed elements
+                # and replace with the list
+                ans_lst.pop(plus_s_idx)
+                ans_lst.remove(term_1)
+                term_2_idx = ans_lst.index(term_2)
+                ans_lst[term_2_idx] = res_lst
+                continue
+        elif isinstance(preceded_term, list):
+            if isinstance(followed_term, list):
+                res_1_lst = term_1
+                res_2_lst = term_2
+                res_lst = []
+                for res_1 in res_1_lst:
+                    docID_1 = res_1[0]
+                    for res_2 in res_2_lst:
+                        docID_2 = res_2[0]
+                        if docID_1 == docID_2:
+                            docID = docID_1
+                            lst = []
+                            term_1_pos_lst = res_1[1]
+                            term_2_pos_lst = res_2[1]
+                            print(term_1_pos_lst)
+                            print(term_2_pos_lst)
+                            for term_2_pos in term_2_pos_lst:
+                                prev_punc_idx = find_previous_punctuation_index(
+                                    term_dict, docID, term_2_pos)
+                                for term_1_pos in term_1_pos_lst:
+                                    if term_2_pos - term_1_pos > 0 and term_1_pos > prev_punc_idx:
+                                        lst.append(term_1_pos)
+                                    elif term_1_pos > term_2_pos:
+                                        break
+                                for term_1_pos in lst:
+                                    if term_2_pos - term_1_pos < 0:
+                                        lst.remove(term_1_pos)
+                                for term_1_pos in lst:
+                                    res = [docID, sorted(
+                                        [term_1_pos, term_2_pos])]
+                                    if res not in res_lst:
+                                        res_lst.append(res)
+                # after process |, remove processed elements
+                # and replace with the list
+                query.pop(plus_s_idx)
+                query.remove(preceded_term)
+                followed_term_idx = query.index(followed_term)
+                query[followed_term_idx] = res_lst
+                continue
+            elif term_2 == None:
+                # after process +n, remove processed elements
+                # and replace with the list
+                ans_lst.pop(plus_s_idx)
+                ans_lst.remove(term_1)
+                term_2_idx = ans_lst.index(term_2)
+                ans_lst[term_2_idx] = res_lst
+    return ans_lst
+
 # query processing for numerical connector /s
 # the search term must appear in the same sentence
 
@@ -909,28 +1140,76 @@ def process_slash_s(term_dict, query):
         preceded_term = query[slash_s_idx - 1]
         # followed_term
         followed_term = query[slash_s_idx + 1]
-        if isinstance(preceded_term, str) and isinstance(followed_term, str):
-            res_lst = []
-            if preceded_term in term_dict.keys() and followed_term in term_dict.keys():
-                term_1 = preceded_term
-                term_2 = followed_term
-                docID_term_1 = set(term_dict[preceded_term].keys())
-                docID_term_2 = set(term_dict[followed_term].keys())
-                intersect_docID = docID_term_1.intersection(
-                    docID_term_2)
-                for docID in intersect_docID:
-                    term_1_pos_lst = term_dict[term_1][docID]
-                    term_2_pos_lst = term_dict[term_2][docID]
-                    for term_2_pos in term_2_pos_lst:
-                        prev_punc_idx = find_previous_punctuation_index(
-                            term_dict, docID, term_2_pos)
-                        next_punc_idx = find_next_punctuation_index(
-                            term_dict, docID, term_2_pos)
-                        for term_1_pos in term_1_pos_lst:
-                            if prev_punc_idx < term_1_pos < next_punc_idx:
+        res_lst = []
+        term_1 = preceded_term
+        term_2 = followed_term
+        if isinstance(preceded_term, str):
+            if isinstance(followed_term, str):
+                if preceded_term in term_dict.keys() and followed_term in term_dict.keys():
+                    docID_term_1 = set(term_dict[preceded_term].keys())
+                    docID_term_2 = set(term_dict[followed_term].keys())
+                    intersect_docID = docID_term_1.intersection(
+                        docID_term_2)
+                    for docID in intersect_docID:
+                        lst = []
+                        term_1_pos_lst = term_dict[term_1][docID]
+                        term_2_pos_lst = term_dict[term_2][docID]
+                        for term_2_pos in term_2_pos_lst:
+                            prev_punc_idx = find_previous_punctuation_index(
+                                term_dict, docID, term_2_pos)
+                            next_punc_idx = find_next_punctuation_index(
+                                term_dict, docID, term_2_pos)
+                            for term_1_pos in term_1_pos_lst:
+                                if prev_punc_idx < term_1_pos < next_punc_idx:
+                                    lst.append(term_1_pos)
+                            for term_1_pos in lst:
+                                if prev_punc_idx > term_1_pos or term_1_pos > next_punc_idx:
+                                    lst.remove(term_1_pos)
+                            for term_1_pos in lst:
                                 res = [docID, [term_1_pos, term_2_pos]]
                                 if res not in res_lst:
                                     res_lst.append(res)
+                    # after process /s, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(slash_s_idx)
+                    ans_lst.remove(preceded_term)
+                    followed_term_idx = ans_lst.index(followed_term)
+                    ans_lst[followed_term_idx] = res_lst
+                    continue
+                elif term_1 not in term_dict.keys() or term_2 not in term_dict.keys():
+                    # after process /s, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(slash_s_idx)
+                    ans_lst.remove(term_1)
+                    term_2_idx = ans_lst.index(term_2)
+                    ans_lst[term_2_idx] = res_lst
+                    continue
+            elif isinstance(followed_term, list):
+                term_1 = preceded_term
+                res_2_lst = followed_term
+                res_lst = []
+                for res_2 in res_2_lst:
+                    docID = res_2[0]
+                    if term_1 in term_dict.keys():
+                        if docID in term_dict[term_1].keys():
+                            lst = []
+                            term_1_pos_lst = term_dict[term_1][docID]
+                            term_2_pos_lst = res_2[1]
+                            for term_2_pos in term_2_pos_lst:
+                                prev_punc_idx = find_previous_punctuation_index(
+                                    term_dict, docID, term_2_pos)
+                                next_punc_idx = find_next_punctuation_index(
+                                    term_dict, docID, term_2_pos)
+                                for term_1_pos in term_1_pos_lst:
+                                    if prev_punc_idx < term_1_pos < next_punc_idx:
+                                        lst.append(term_1_pos)
+                                for term_1_pos in lst:
+                                    if prev_punc_idx > term_1_pos or term_1_pos > next_punc_idx:
+                                        lst.remove(term_1_pos)
+                                for term_1_pos in lst:
+                                    res = [docID, [term_1_pos, term_2_pos]]
+                                    if res not in res_lst:
+                                        res_lst.append(res)
                 # after process /s, remove processed elements
                 # and replace with the list
                 query.pop(slash_s_idx)
@@ -938,105 +1217,109 @@ def process_slash_s(term_dict, query):
                 followed_term_idx = query.index(followed_term)
                 query[followed_term_idx] = res_lst
                 continue
-        elif isinstance(preceded_term, list) and isinstance(followed_term, str):
-            # case term_1 is a list of positional index
-            res_1_lst = preceded_term
-            term_2 = followed_term
-            res_lst = []
-            for res_1 in res_1_lst:
-                docID = res_1[0]
-                if term_2 in term_dict.keys():
-                    if docID in term_dict[term_2].keys():
-                        lst = []
-                        term_1_pos_lst = res_1[1]
-                        term_2_pos_lst = term_dict[term_2][docID]
-                        for term_1_pos in term_1_pos_lst:
-                            prev_punc_idx = find_previous_punctuation_index(
-                                term_dict, docID, term_1_pos)
-                            next_punc_idx = find_next_punctuation_index(
-                                term_dict, docID, term_1_pos)
+            elif term_2 == None:
+                # after process /s, remove processed elements
+                # and replace with the list
+                ans_lst.pop(slash_s_idx)
+                ans_lst.remove(preceded_term)
+                followed_term_idx = ans_lst.index(followed_term)
+                ans_lst[followed_term_idx] = res_lst
+                continue
+        elif isinstance(followed_term, str):
+            if isinstance(preceded_term, list):
+                # case term_1 is a list of positional index
+                res_1_lst = preceded_term
+                term_2 = followed_term
+                res_lst = []
+                for res_1 in res_1_lst:
+                    docID = res_1[0]
+                    if term_2 in term_dict.keys():
+                        if docID in term_dict[term_2].keys():
+                            lst = []
+                            term_1_pos_lst = res_1[1]
+                            term_2_pos_lst = term_dict[term_2][docID]
+                            for term_1_pos in term_1_pos_lst:
+                                prev_punc_idx = find_previous_punctuation_index(
+                                    term_dict, docID, term_1_pos)
+                                next_punc_idx = find_next_punctuation_index(
+                                    term_dict, docID, term_1_pos)
+                                for term_2_pos in term_2_pos_lst:
+                                    if prev_punc_idx < term_2_pos < next_punc_idx:
+                                        lst.append(term_2_pos)
+                                for term_2_pos in lst:
+                                    if prev_punc_idx > term_1_pos or term_1_pos > next_punc_idx:
+                                        lst.remove(term_2_pos)
+                                for term_2_pos in lst:
+                                    res = [docID, sorted(
+                                        [term_1_pos, term_2_pos])]
+                                    if res not in res_lst:
+                                        res_lst.append(res)
+                # after process /s, remove processed elements
+                # and replace with the list
+                query.pop(slash_s_idx)
+                query.remove(preceded_term)
+                followed_term_idx = query.index(followed_term)
+                query[followed_term_idx] = res_lst
+                continue
+            if preceded_term == None:
+                # after process /s, remove processed elements
+                # and replace with the list
+                ans_lst.pop(slash_s_idx)
+                ans_lst.remove(term_1)
+                term_2_idx = ans_lst.index(term_2)
+                ans_lst[term_2_idx] = res_lst
+                continue
+        elif isinstance(preceded_term, list):
+            if isinstance(followed_term, list):
+                res_1_lst = preceded_term
+                res_2_lst = followed_term
+                res_lst = []
+                for res_1 in res_1_lst:
+                    docID_1 = res_1[0]
+                    for res_2 in res_2_lst:
+                        docID_2 = res_2[0]
+                        if docID_1 == docID_2:
+                            docID = docID_1
+                            lst = []
+                            term_1_pos_lst = res_1[1]
+                            term_2_pos_lst = res_2[1]
                             for term_2_pos in term_2_pos_lst:
-                                if prev_punc_idx < term_2_pos < next_punc_idx:
-                                    res = [docID, term_1_pos_lst + [term_2_pos]]
-                                    if res not in res_lst:
-                                        res_lst.append(res)
-            # after process /s, remove processed elements
-            # and replace with the list
-            query.pop(slash_s_idx)
-            query.remove(preceded_term)
-            followed_term_idx = query.index(followed_term)
-            query[followed_term_idx] = res_lst
-            print(query)
-            continue
-        elif isinstance(preceded_term, str) and isinstance(followed_term, list):
-            term_1 = preceded_term
-            res_2_lst = followed_term
-            res_lst = []
-            for res_2 in res_2_lst:
-                docID = res_2[0]
-                if term_1 in term_dict.keys():
-                    if docID in term_dict[term_1].keys():
-                        lst = []
-                        term_1_pos_lst = term_dict[term_1][docID]
-                        term_2_pos_lst = res_2[1]
-                        for term_2_pos in term_2_pos_lst:
-                            prev_punc_idx = find_previous_punctuation_index(
-                                term_dict, docID, term_2_pos)
-                            next_punc_idx = find_next_punctuation_index(
-                                term_dict, docID, term_2_pos)
-                            for term_1_pos in term_1_pos_lst:
-                                if prev_punc_idx < term_1_pos < next_punc_idx:
+                                prev_punc_idx = find_previous_punctuation_index(
+                                    term_dict, docID, term_2_pos)
+                                next_punc_idx = find_next_punctuation_index(
+                                    term_dict, docID, term_2_pos)
+                                for term_1_pos in term_1_pos_lst:
+                                    if prev_punc_idx < term_1_pos < next_punc_idx:
+                                        lst.append(term_1_pos)
+                                for term_1_pos in lst:
+                                    if prev_punc_idx > term_1_pos or term_1_pos > next_punc_idx:
+                                        lst.remove(term_1_pos)
+                                for term_1_pos in lst:
                                     res = [docID, sorted(
-                                        term_2_pos_lst + [term_1_pos])]
+                                        [term_1_pos, term_2_pos])]
                                     if res not in res_lst:
                                         res_lst.append(res)
-            # after process /s, remove processed elements
-            # and replace with the list
-            query.pop(slash_s_idx)
-            query.remove(preceded_term)
-            followed_term_idx = query.index(followed_term)
-            query[followed_term_idx] = res_lst
-            print(query)
-            continue
-        elif isinstance(preceded_term, list) and isinstance(followed_term, list):
-            res_1_lst = preceded_term
-            res_2_lst = followed_term
-            res_lst = []
-            for res_1 in res_1_lst:
-                docID_1 = res_1[0]
-                for res_2 in res_2_lst:
-                    docID_2 = res_2[0]
-                    if docID_1 == docID_2:
-                        docID = docID_1
-                        lst = []
-                        term_1_pos_lst = res_1[1]
-                        term_2_pos_lst = res_2[1]
-                        for term_2_pos in term_2_pos_lst:
-                            prev_punc_idx = find_previous_punctuation_index(
-                                term_dict, docID, term_2_pos)
-                            next_punc_idx = find_next_punctuation_index(
-                                term_dict, docID, term_2_pos)
-                            for term_1_pos in term_1_pos_lst:
-                                if prev_punc_idx < term_1_pos < next_punc_idx:
-                                    res = [docID, sorted(
-                                        term_2_pos_lst + [term_1_pos])]
-                                    if res not in res_lst:
-                                        res_lst.append(res)
-            # after process |, remove processed elements
-            # and replace with the list
-            query.pop(slash_s_idx)
-            query.remove(preceded_term)
-            followed_term_idx = query.index(followed_term)
-            query[followed_term_idx] = res_lst
-            continue
-    return query
-
+                # after process /s, remove processed elements
+                # and replace with the list
+                ans_lst.pop(slash_s_idx)
+                ans_lst.remove(preceded_term)
+                followed_term_idx = ans_lst.index(followed_term)
+                ans_lst[followed_term_idx] = res_lst
+                continue
+            elif term_2 == None:
+                # after process /s, remove processed elements
+                # and replace with the list
+                ans_lst.pop(slash_s_idx)
+                ans_lst.remove(term_1)
+                term_2_idx = ans_lst.index(term_2)
+                ans_lst[term_2_idx] = res_lst
+    return ans_lst
 
 # process and
 
 
 def process_and(term_dict, query):
-    res_lst = query
+    ans_lst = query
     while "&" in query:
         # find idx of | in query_split
         and_idx = query.index("&")
@@ -1044,79 +1327,120 @@ def process_and(term_dict, query):
         preceded_term = query[and_idx - 1]
         # followed_term
         followed_term = query[and_idx + 1]
-        if isinstance(preceded_term, str) and isinstance(followed_term, str):
-            res_lst = []
-            term_1 = preceded_term
-            term_2 = followed_term
-            if term_1 in term_dict.keys() and term_2 in term_dict.keys():
-                docID_term_1 = set(term_dict[term_1].keys())
-                docID_term_2 = set(term_dict[term_2].keys())
-                intersect_docID = docID_term_1.intersection(docID_term_2)
-                for docID in intersect_docID:
-                    term_1_pos_lst = term_dict[term_1][docID]
-                    term_2_pos_lst = term_dict[term_2][docID]
-                    res = [docID, sorted(term_1_pos_lst + term_2_pos_lst)]
-                    res_lst.append(res)
-            # after process &, remove processed elements
-            # and replace with the list
-            query.pop(and_idx)
-            query.remove(preceded_term)
-            followed_term_idx = query.index(followed_term)
-            query[followed_term_idx] = res_lst
-        elif isinstance(preceded_term, list) and isinstance(followed_term, str):
-            res_1_lst = preceded_term
-            term_2 = followed_term
-            res_lst = []
-            for res_1 in res_1_lst:
-                docID = res_1[0]
-                if term_2 in term_dict.keys():
-                    if docID in term_dict[term_2].keys():
-                        term_1_pos_lst = res_1[1]
+        term_1 = preceded_term
+        term_2 = followed_term
+        res_lst = []
+        if isinstance(term_1, str):
+            if isinstance(term_2, str):
+                if term_1 in term_dict.keys() and term_2 in term_dict.keys():
+                    docID_term_1 = set(term_dict[term_1].keys())
+                    docID_term_2 = set(term_dict[term_2].keys())
+                    intersect_docID = docID_term_1.intersection(docID_term_2)
+                    for docID in intersect_docID:
+                        term_1_pos_lst = term_dict[term_1][docID]
                         term_2_pos_lst = term_dict[term_2][docID]
                         res = [docID, sorted(term_1_pos_lst + term_2_pos_lst)]
-                        res_lst.append(res)
-            # after process &, remove processed elements
-            # and replace with the list
-            query.pop(and_idx)
-            query.remove(preceded_term)
-            followed_term_idx = query.index(followed_term)
-            query[followed_term_idx] = res_lst
-        elif isinstance(preceded_term, str) and isinstance(followed_term, list):
-            res_2_lst = followed_term
-            term_1 = preceded_term
-            res_lst = []
-            for res_2 in res_2_lst:
-                docID = res_2[0]
-                if term_1 in term_dict.keys():
-                    if docID in term_dict[term_1].keys():
-                        term_1_pos_lst = term_dict[term_1][docID]
-                        term_2_pos_lst = res_2[1]
-                        res = [docID, sorted(term_1_pos_lst + term_2_pos_lst)]
-                        res_lst.append(res)
-            # after process &, remove processed elements
-            # and replace with the list
-            query.pop(and_idx)
-            query.remove(preceded_term)
-            followed_term_idx = query.index(followed_term)
-            query[followed_term_idx] = res_lst
-        elif isinstance(preceded_term, list) and isinstance(followed_term, list):
-            res_1_lst = preceded_term
-            res_2_lst = followed_term
-            res_lst = []
-            for res_1 in res_1_lst:
-                docID_1 = res_1[0]
+                        if res not in res_lst:
+                            res_lst.append(res)
+                    # after process &, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(and_idx)
+                    ans_lst.remove(term_1)
+                    followed_term_idx = ans_lst.index(term_2)
+                    ans_lst[followed_term_idx] = res_lst
+                elif term_1 not in term_dict.keys() or term_2 not in term_dict.keys():
+                    # after process &, remove processed elements
+                    # and replace with the list
+                    ans_lst.pop(and_idx)
+                    ans_lst.remove(term_1)
+                    followed_term_idx = ans_lst.index(term_2)
+                    ans_lst[followed_term_idx] = res_lst
+            elif isinstance(term_2, list):
+                res_2_lst = term_2
+                res_lst = []
                 for res_2 in res_2_lst:
-                    docID_2 = res_2[0]
-                    if docID_1 == docID_2:
-                        docID = docID_1
-                        term_1_pos_lst = res_1[1]
-                        term_2_pos_lst = res_2[1]
-                        res = [docID, sorted(term_1_pos_lst + term_2_pos_lst)]
-                        res_lst.append(res)
-            # after process &, remove processed elements
-            # and replace with the list
-            query.pop(and_idx)
-            query.remove(preceded_term)
-            followed_term_idx = query.index(followed_term)
-            query[followed_term_idx] = res_lst
-    return query
+                    docID = res_2[0]
+                    if term_1 in term_dict.keys():
+                        if docID in term_dict[term_1].keys():
+                            term_1_pos_lst = term_dict[term_1][docID]
+                            term_2_pos_lst = res_2[1]
+                            res = [docID, sorted(
+                                term_1_pos_lst + term_2_pos_lst)]
+                            if res not in res_lst:
+                                res_lst.append(res)
+                    elif term_1 not in term_dict.keys():
+                        pass
+                # after process &, remove processed elements
+                # and replace with the list
+                ans_lst.pop(and_idx)
+                ans_lst.remove(term_1)
+                followed_term_idx = ans_lst.index(term_2)
+                ans_lst[followed_term_idx] = res_lst
+                continue
+            elif term_2 == None:
+                # after process &, remove processed elements
+                # and replace with the list
+                ans_lst.pop(and_idx)
+                ans_lst.remove(term_1)
+                followed_term_idx = ans_lst.index(term_2)
+                ans_lst[followed_term_idx] = res_lst
+        elif isinstance(term_2, str):
+            if isinstance(term_1, list):
+                res_1_lst = term_1
+                res_lst = []
+                for res_1 in res_1_lst:
+                    docID = res_1[0]
+                    if term_2 in term_dict.keys():
+                        if docID in term_dict[term_2].keys():
+                            term_1_pos_lst = res_1[1]
+                            term_2_pos_lst = term_dict[term_2][docID]
+                            res = [docID, sorted(
+                                term_1_pos_lst + term_2_pos_lst)]
+                            if res not in res_lst:
+                                res_lst.append(res)
+                    elif term_2 not in term_dict.keys():
+                        pass
+                # after process &, remove processed elements
+                # and replace with the list
+                ans_lst.pop(and_idx)
+                ans_lst.remove(term_1)
+                followed_term_idx = ans_lst.index(term_2)
+                ans_lst[followed_term_idx] = res_lst
+            elif term_1 == None:
+                # after process &, remove processed elements
+                # and replace with the list
+                ans_lst.pop(and_idx)
+                ans_lst.remove(term_1)
+                followed_term_idx = ans_lst.index(term_2)
+                ans_lst[followed_term_idx] = res_lst
+        elif isinstance(term_1, list):
+            if isinstance(term_2, list):
+                res_1_lst = term_1
+                res_2_lst = term_2
+                res_lst = []
+                for res_1 in res_1_lst:
+                    docID_1 = res_1[0]
+                    for res_2 in res_2_lst:
+                        docID_2 = res_2[0]
+                        if docID_1 == docID_2:
+                            docID = docID_1
+                            term_1_pos_lst = res_1[1]
+                            term_2_pos_lst = res_2[1]
+                            res = [docID, sorted(
+                                term_1_pos_lst + term_2_pos_lst)]
+                            if res not in res_lst:
+                                res_lst.append(res)
+                # after process &, remove processed elements
+                # and replace with the list
+                query.pop(and_idx)
+                query.remove(preceded_term)
+                followed_term_idx = query.index(followed_term)
+                query[followed_term_idx] = res_lst
+            elif term_2 == None:
+                # after process &, remove processed elements
+                # and replace with the list
+                query.pop(and_idx)
+                query.remove(preceded_term)
+                followed_term_idx = query.index(followed_term)
+                query[followed_term_idx] = res_lst
+    return ans_lst

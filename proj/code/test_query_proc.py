@@ -12,35 +12,39 @@ index_folder_path = "/Users/ethancharn/Documents/GitHub/UNSW_INFO/proj/index"
 with open(os.path.join(index_folder_path, "index.json"), 'r') as json_file:
     term_dict = json.load(json_file)
 
-query = 'light & "shower continue" smith & open'
+query = 'bahia'
 
 query = query.lower()
 
+print(query.split(" "))
+
 modified_query = modify_phrase(query)
-print(modified_query)
+print(f"after mod phrase      {modified_query}")
 
 modified_query = modify_or(modified_query)
-print(modified_query)
+print(f"after mod or          {modified_query}")
 
 ans_lst = process_phrase(term_dict, modified_query)
-print(ans_lst)
+print(f"after proc phrase     {ans_lst}")
 
 ans_lst = process_or(term_dict, ans_lst)
-print(ans_lst)
+print(f"after proc or         {ans_lst}")
+
 
 ans_lst = process_plus_n(term_dict, ans_lst)
-print(ans_lst)
+print(f"after proc +n         {ans_lst}")
 
 ans_lst = process_slash_n(term_dict, ans_lst)
-print(ans_lst)
+print(f"after proc /n         {ans_lst}")
+
 
 ans_lst = process_plus_s(term_dict, ans_lst)
-print(ans_lst)
+print(f"after proc +s         {ans_lst}")
 
 ans_lst = process_slash_s(term_dict, ans_lst)
-print(ans_lst)
+print(f"after proc /s         {ans_lst}")
 
 ans_lst = process_and(term_dict, ans_lst)
-print(ans_lst)
+print(f"after proc and        {ans_lst}")
 
-print_formatted_output(ans_lst)
+print_formatted_output(term_dict, ans_lst)

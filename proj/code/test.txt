@@ -1,0 +1,72 @@
+|
+"shower continue" "throughout the"
+
++n
+shower +5 continue
+shower +5 oh
+oh +5 continue
+my +5 oh "shower continue"
+shower +5 "throughout the"
+"shower continue" +5 throughout
+oh +5 shower
+"shower continue" +5 "throughout the"
+"shower continue" +5 oh
+
+/n
+shower /5 continue
+shower /5 oh
+oh /5 continue
+my /5 oh "shower continue"
+throughout /5 oh "shower continue"
+shower /5 "throughout the"
+"shower continue" /5 throughout
+oh /5 shower
+"shower continue" /5 "throughout the"
+"shower continue" /5 oh
+
++s
+shower +s continue
+my +s oh "shower continue"
+shower +s oh
+shower +s "oh my"
+shower +s "throughout the"
+"shower continue" +s throughout
+"oh my" +s throughout
+oh +s shower
+"shower continue" +s "throughout the"
+"shower continue" +s oh
+"shower continue" +s "oh my"
+oh +5 continue
+throughout +s oh "shower continue"
+shower +s "throughout the"
+"shower continue" +s throughout
+
+/s
+shower /s continue
+my /s oh "shower continue"
+shower /s oh
+shower /s "oh my"
+shower /s "throughout the"
+"shower continue" /s throughout
+"oh my" /s throughout
+oh /s shower
+"shower continue" /s "throughout the"
+"shower continue" /s oh
+"shower continue" /s "oh my"
+oh /5 continue
+throughout /s oh "shower continue"
+shower /s "throughout the"
+"shower continue" /s throughout
+
+&
+shower & continue
+oh & "shower continue"
+shower & oh
+my & oh "shower continue"
+shower & "throughout the"
+"shower continue" & throughout
+oh & shower
+"oh my" & shower
+"shower continue" & "throughout the"
+"shower continue" & oh
+"shower continue" & "oh my"
